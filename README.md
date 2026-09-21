@@ -1,78 +1,93 @@
-# AIOps Demo
+# aiops-demo
 
-**OpenTelemetry + LLM multi-agent incident analysis**
+**OpenTelemetry ingest + LLM multi-agent incident analysis.**
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)]()
-[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-latest-blue.svg)]()
+Based on the AIOps platform I built at Bespin Global. MTTR (Mean Time To Root-Cause) went from 30 minutes to 5 minutes in production.
 
 ---
 
-## What this is
+## What this demo does
 
-A minimal, runnable AIOps platform that demonstrates how to combine **OpenTelemetry observability** with **LLM multi-agent analysis** to cut MTTR (Mean Time To Root-Cause) from 30 minutes to 5 minutes.
+1. Receives OTLP traces/metrics/logs from your apps
+2. Routes them through a ring buffer (LMAX Disruptor pattern)
+3. Stores in Apache Doris
+4. Triggers multi-agent analysis when alerts fire:
+   - **Brain Agent** decides what to investigate
+   - **Data Agent** queries metrics
+   - **Inspection Agent** reads recent traces
+5. Returns root cause + recommendations in JSON
 
-Based on patterns from a production AIOps platform I built at Bespin Global.
-
-## Features
-
-- ✅ **OTLP receiver** (gRPC + HTTP) — ingests traces/metrics/logs/topology
-- ✅ **LMAX Disruptor** ring buffer — high-throughput ingestion
-- ✅ **Multi-agent analysis** — Brain / Data / Inspection specialists
-- ✅ **9-LLM provider router** (Qwen / GPT / Claude / DeepSeek)
-- ✅ **Topology visualization** — Vue + AntV X6 frontend
-- ✅ **Helm Chart** — multi-arch (amd64/arm64) deploy
+---
 
 ## Architecture
 
 ```
-[App OTLP] → [Receiver] → [Disruptor Buffer] → [Doris Storage]
-                                                        ↓
-                                              [Brain Agent]
-                                                        ↓
-                                  ┌──────────────────┼──────────────────┐
-                                  ↓                  ↓                  ↓
-                          [Data Agent]      [Inspection Agent]    [Log Agent]
-                                  ↓                  ↓                  ↓
-                                  └────────[LLM Router]──────┘
-                                                ↓
-                                    [Root Cause + Recommendation]
-                                                ↓
-                                  [Vue + AntV X6 Visualization]
+[App OTLP] → [Receiver] → [Ring Buffer] → [Doris]
+                                              ↓
+                                     [Brain Agent]
+                                              ↓
+                       ┌──────────────────────┼──────────────────────┐
+                       ↓                      ↓                      ↓
+                [Data Agent]       [Inspection Agent]         [Log Agent]
+                       ↓                      ↓                      ↓
+                       └────────[LLM Router (9 providers)]──────┘
+                                              ↓
+                                [Root Cause + Recommendations]
+                                              ↓
+                            [Vue 3 + AntV X6 Visualization]
 ```
+
+---
 
 ## Quick start
 
 ```bash
-git clone https://github.com/sherwin28/aiops-demo.git
+git clone https://github.com/sherwin28/aiops-demo
 cd aiops-demo
 docker-compose up
-open http://localhost:5173  # frontend
-```
+open http://localhost:5173
 
-## Inject a test trace
-
-```bash
+# Inject a test incident
 python scripts/inject_test_incident.py
-# Triggers a slow query → fires alert → agents analyze → recommendation appears
 ```
 
-## Tech Stack
+You'll see: `checkout-api` slow query → Brain Agent analysis → "Missing index on orders(user_id, created_at)" → recommendation to add index.
 
-**Backend**: Python 3.11 / FastAPI / SQLAlchemy async / Celery
-**Data**: Apache Doris / Elasticsearch
-**Frontend**: Vue 3 + AntV X6 + Vite
-**Infra**: Docker Compose / Helm / Kubernetes / OpenTelemetry
+---
 
-## Use cases
+## Stack
 
-- 🏢 Run as a starter for enterprise AIOps
-- 🔬 Demo for client presentations
-- 🎓 Reference architecture for OTLP + LLM integration
+Python 3.11 · FastAPI · gRPC · OpenTelemetry · Apache Doris · LangChain · Vue 3 · AntV X6 · Docker Compose
+
+---
+
+## Layout
+
+```
+backend/
+├── ingest/otlp_receiver.py    OTLP gRPC + LMAX ring buffer
+├── agents/brain.py            Root-cause analysis
+├── agents/inspection.py       Trace deep-dive
+└── app.py                     FastAPI entry
+
+frontend/
+└── src/App.vue                Topology + alert UI
+
+scripts/inject_test_incident.py  Synthetic incident generator
+```
+
+---
+
+## Reference
+
+Built from Bespin Global AIOps platform (5 expert agents, 9 LLM providers, multi-arch Helm chart deploy).
+
+---
 
 ## License
 
 MIT
 
-## Author
+---
 
-**魏远标** — AI Architect · [javai.tech](https://javai.tech)
+**Author**: 魏远标 · [javai.tech](https://javai.tech)
